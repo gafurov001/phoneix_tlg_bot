@@ -6,3 +6,18 @@ class LessonsQuestion(StatesGroup):
     modul = State()
     lesson = State()
     answer = State()
+    curator = State()
+    curator_id = State()
+    question_id = State()
+    full_name = State()
+    phone_number = State()
+    screenshot_check = State()
+    reason_cancel_course = State()
+
+
+
+
+
+
+
+
