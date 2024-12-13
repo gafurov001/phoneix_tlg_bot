@@ -13,6 +13,8 @@ class LessonsQuestion(StatesGroup):
     phone_number = State()
     screenshot_check = State()
     reason_cancel_course = State()
+    amalyot_group = State()
+    platforma_group = State()
 
 
 

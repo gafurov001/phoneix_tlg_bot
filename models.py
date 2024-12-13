@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import create_engine, Integer, Text, Select, BigInteger, Delete, String, Date
+from sqlalchemy import create_engine, Integer, Text, Select, BigInteger, Delete, String, Date, desc
 from sqlalchemy.dialects.postgresql import Insert
 from sqlalchemy.orm import DeclarativeBase, declared_attr, Session
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,7 +30,6 @@ class AbstractClass:
             conn.commit()
             return res
 
-
     @classmethod
     async def create(cls, **kwargs):
         with Session(engine) as session:
@@ -46,12 +45,42 @@ class AbstractClass:
             conn.commit()
             return res
 
-
     @classmethod
     async def delete(cls, id):
         with engine.connect() as conn:
             conn.execute(Delete(cls).where(cls.id == id))
             conn.commit()
+
+    @classmethod
+    async def select_where_asc(cls, limit, *criteria):
+        with engine.connect() as conn:
+            res = conn.execute(Select(cls).order_by('id').where(*criteria).limit(limit))
+            conn.commit()
+            return res
+
+    @classmethod
+    async def select_where_desc(cls, limit, *criteria):
+        with engine.connect() as conn:
+            res = conn.execute(Select(cls).order_by(cls.id.desc()).where(*criteria).limit(limit))
+            conn.commit()
+            return res
+    @classmethod
+    async def last_id(cls):
+        with Session(engine) as session:
+            # stmt = Select(cls.id).order_by(cls.id.desc).first()
+            # result = session.query(stmt)
+            # session.commit()
+            return session.query(cls.id).order_by(desc(cls.id)).first()
+
+    @classmethod
+    async def first_id(cls):
+        with Session(engine) as session:
+            # stmt = Select(cls.id).order_by(cls.id.desc).first()
+            # result = session.query(stmt)
+            # session.commit()
+            return session.query(cls.id).first()
+
+
 
 
 class Base(DeclarativeBase, AbstractClass):
@@ -75,12 +104,15 @@ class Answer(Base):
     answer: Mapped[str] = mapped_column(Text)
 
 
-class Answers(Base):
+class AmalyotAnswer(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    modul: Mapped[str] = mapped_column(Text)
-    lesson: Mapped[str] = mapped_column(Text)
     question: Mapped[str] = mapped_column(Text)
-    question_number: Mapped[int] = mapped_column(Integer)
+    answer: Mapped[str] = mapped_column(Text)
+
+
+class PlatformaAnswer(Base):
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    question: Mapped[str] = mapped_column(Text)
     answer: Mapped[str] = mapped_column(Text)
 
 
@@ -97,12 +129,14 @@ class Complaint(Base):
     screenshot_check: Mapped[str] = mapped_column(String(255))
     reason_cancel_course: Mapped[str] = mapped_column(String(255))
 
+
 class Curator(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     curator_id: Mapped[int] = mapped_column(BigInteger)
     question_id: Mapped[int] = mapped_column(BigInteger)
     answer: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(Date)
+
 
 def create_table():
     Base.metadata.create_all(engine)

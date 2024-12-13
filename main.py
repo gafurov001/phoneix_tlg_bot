@@ -9,13 +9,13 @@ from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, CallbackQuery, \
-    ChatMemberUpdated, ReplyKeyboardRemove
+    ChatMemberUpdated, ReplyKeyboardRemove, BotCommand
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import bot_token, group_id_2, group_id_1
+from config import bot_token, group_id_2, group_id_1, amalyot_group_id, platforma_group_id
 from form import LessonsQuestion
 from functions import validate_full_name
-from models import create_table, Answer, Question, Complaint, Curator
+from models import create_table, Answer, Question, Complaint, Curator, AmalyotAnswer, PlatformaAnswer
 
 TOKEN = bot_token
 dp = Dispatcher()
@@ -37,17 +37,17 @@ async def admin_send_report(message: Message):
                 continue
             d[i[1]] = 1
         for id, k in enumerate(d):
-            text += "".join(f'<a href="tg://user?id={int(k)}">{id+1}</a> = {d[k]}\n')
+            text += "".join(f'<a href="tg://user?id={int(k)}">{id + 1}</a> = {d[k]}\n')
         await message.answer(text, parse_mode=ParseMode.HTML)
 
 
-@dp.message(lambda message: message.chat.id in [group_id_1, group_id_2])
+@dp.message(lambda message: message.chat.id in [group_id_1, group_id_2, amalyot_group_id, platforma_group_id])
 async def send_msg_group(message: Message, state: FSMContext, bot: Bot):
     await state.clear()
     await state.storage.close()
     await state.set_state(LessonsQuestion.curator)
     msg = message.reply_to_message.text.split('\n\n')
-    q = await Question.filter(Question.question == msg[-1])
+    q = await Question.filter(Question.id == int(msg[0].split('Savol id:')[1]))
     q = [i for i in q][0]
     chat_id = message.chat.id
     if message.text:
@@ -84,8 +84,6 @@ async def send_msg_group(message: Message, state: FSMContext, bot: Bot):
     await bot.edit_message_text(text=f'{msg[0]}\n\n<tg-spoiler>{msg[1]}</tg-spoiler>',
                                 chat_id=chat_id,
                                 message_id=message.reply_to_message.message_id, reply_markup=ikb.as_markup())
-    # await bot.send_message(q[-1],
-    #                        "Kuratorga 1 dan 5 gacha baho bering, 1 yomon 5 yaxshi, agar kuratorga 5 ball bersangiz bonusimiz bor!!!")
 
 
 @dp.my_chat_member()
@@ -101,17 +99,176 @@ async def on_chat_member_update(event: ChatMemberUpdated, bot: Bot):
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     kb = [
-        [KeyboardButton(text="Dars bo'yicha savol 📚")]
+        [KeyboardButton(text="Dars bo'yicha savol 📚")],
+        [KeyboardButton(text="Amaliyot bo‘yicha savollar📊")],
+        [KeyboardButton(text="Platforma va uyga vazifalar bo‘yicha savollar📱")],
     ]
     rkb = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    text = '''Assalomu alaykum! Bu Niyat Education qo‘llab-quvvatlash botidir.
-Agar sizda darslar bo'yicha savol bo'lsa "Dars bo'yicha savol 📚" shu tugmani bosing!'''
+    text = '''Assalomu alaykum! 👋
+TargetPro botga xush kelibsiz! 🚀
+Bu yerda siz kurs haqida barcha kerakli ma’lumotlarni topishingiz mumkin. Men sizga yordam berish va savollaringizga javob qaytarish uchun shu yerdaman. 😊
+Men bilan ishlash juda oson va qulay! 😉
+Qanday ma’lumot kerakligini tanlang va boshlaymiz:
+1️⃣ Darslar va vazifalar haqida ma’lumot
+2️⃣ Amaliyot bo’yicha savol/Kurator bilan bog’lanish
+3️⃣ Uyga vazifa bo’yicha savollar
+Men sizga yordam berishga doim tayyorman! 😊
+'''
     await message.answer(text, reply_markup=rkb)
 
 
-@dp.message(F.text == "Ortga ⬅️")
-async def another_question(message: Message):
+@dp.message(F.text == "Amaliyot bo‘yicha savollar📊")
+async def amalyot_answer(message: Message):
+    rkb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Amalyot bo'yicha tayyor savollar📖")],
+                                        [KeyboardButton(text="Mutaxasislar bilan bog'lanish👨🏻‍💻")],
+                                        [KeyboardButton(text="Ortga")]], resize_keyboard=True)
+    await message.answer("Tugmalardan birini tanlang!", reply_markup=rkb)
+
+
+@dp.message(F.text == "Platforma va uyga vazifalar bo‘yicha savollar📱")
+async def amalyot_answer(message: Message):
+    rkb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Platforma bo'yicha tayyor savollar📖")],
+                                        [KeyboardButton(text="Mutaxasislarimiz bilan bog'lanish👨🏻‍💻")],
+                                        [KeyboardButton(text="Ortga")]], resize_keyboard=True)
+    await message.answer("Tugmalardan birini tanlang!", reply_markup=rkb)
+
+
+@dp.message(F.text == "Platforma bo'yicha tayyor savollar📖")
+async def tayyot_javob_amalyot(message: Message):
+    res = await PlatformaAnswer.select_where_asc(2, PlatformaAnswer.id >= 1)
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*platforma")] for i in [j for j in res]]
+    markup.append([InlineKeyboardButton(text="➡️", callback_data="platforma_oldinga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await message.answer(
+        "Savolardan birini tanlang, agar ozingizga kerak bo'lgan savolni topa olmasangiz keyigi sahifaga otkazib koring‼️",
+        reply_markup=ikb.as_markup())
+
+
+@dp.callback_query(F.data == "platforma_oldinga")
+async def oldinga_amalyot(callback: CallbackQuery, bot: Bot):
+    last_object_id = await PlatformaAnswer.last_id()
+    inline = callback.message.reply_markup.inline_keyboard
+    res = await PlatformaAnswer.select_where_asc(2, PlatformaAnswer.id > inline[-2][0].callback_data.split('*')[0])
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*platforma")] for i in [j for j in res]]
+    if int(markup[-1][0].callback_data.split('*')[0]) != last_object_id[0]:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="platforma_ortga"),
+                       InlineKeyboardButton(text="➡️", callback_data="platforma_oldinga")])
+    else:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="platforma_ortga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+                                        reply_markup=ikb.as_markup())
+
+    await bot.edit_message_reply_markup()
+
+
+@dp.callback_query(F.data == "platforma_ortga")
+async def oldinga_amalyot(callback: CallbackQuery, bot: Bot):
+    first_object_id = await PlatformaAnswer.first_id()
+    inline = callback.message.reply_markup.inline_keyboard
+    res = [i for i in
+           await PlatformaAnswer.select_where_desc(2, PlatformaAnswer.id < inline[0][0].callback_data.split('*')[0])]
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*platforma")] for i in res[::-1]]
+    if int(markup[0][0].callback_data.split('*')[0]) != first_object_id[0]:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="platforma_ortga"),
+                       InlineKeyboardButton(text="➡️", callback_data="platforma_oldinga")])
+    else:
+        markup.append([
+            InlineKeyboardButton(text="➡️", callback_data="platforma_oldinga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+                                        reply_markup=ikb.as_markup())
+
+
+@dp.callback_query(F.data.endswith('platforma'))
+async def amalyot_send_answer(callback: CallbackQuery):
+    answer = [i for i in await PlatformaAnswer.filter(PlatformaAnswer.id == int(callback.data.split('*')[0]))]
+    await callback.message.answer(f"Savol:\n\n{answer[0][1]}\n\nJavob:\n\n{answer[0][2]}",
+                                  reply_markup=InlineKeyboardBuilder(markup=[[InlineKeyboardButton(text='Tushunarli✔️',
+                                                                                                   callback_data='tushunarli')]]).as_markup())
+
+
+@dp.message(F.text == "Mutaxasislarimiz bilan bog'lanish👨🏻‍💻")
+async def send_to_amalyot_group(message: Message, state: FSMContext):
+    await message.answer("Savolingizni yozishingiz mumkin tez orada sizga mutaxasislarimiz bog'lanishadi!")
+    await state.set_state(LessonsQuestion.platforma_group)
+
+
+@dp.message(F.text == "Amalyot bo'yicha tayyor savollar📖")
+async def tayyot_javob_amalyot(message: Message):
+    res = await AmalyotAnswer.select_where_asc(2, AmalyotAnswer.id >= 1)
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*amalyot")] for i in [j for j in res]]
+    markup.append([InlineKeyboardButton(text="➡️", callback_data="amalyot_oldinga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await message.answer(
+        "Savolardan birini tanlang, agar ozingizga kerak bo'lgan savolni topa olmasangiz keyigi sahifaga otkazib koring‼️",
+        reply_markup=ikb.as_markup())
+
+
+@dp.callback_query(F.data == "amalyot_oldinga")
+async def oldinga_amalyot(callback: CallbackQuery, bot: Bot):
+    last_object_id = await AmalyotAnswer.last_id()
+    inline = callback.message.reply_markup.inline_keyboard
+    res = await AmalyotAnswer.select_where_asc(2, AmalyotAnswer.id > inline[-2][0].callback_data.split('*')[0])
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*amalyot")] for i in [j for j in res]]
+    if int(markup[-1][0].callback_data.split('*')[0]) != last_object_id[0]:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="amalyot_ortga"),
+                       InlineKeyboardButton(text="➡️", callback_data="amalyot_oldinga")])
+    else:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="amalyot_ortga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+                                        reply_markup=ikb.as_markup())
+
+    await bot.edit_message_reply_markup()
+
+
+@dp.callback_query(F.data == "amalyot_ortga")
+async def oldinga_amalyot(callback: CallbackQuery, bot: Bot):
+    first_object_id = await AmalyotAnswer.first_id()
+    inline = callback.message.reply_markup.inline_keyboard
+    res = [i for i in
+           await AmalyotAnswer.select_where_desc(2, AmalyotAnswer.id < inline[0][0].callback_data.split('*')[0])]
+    markup = [[InlineKeyboardButton(text=i[1], callback_data=f"{i[0]}*amalyot")] for i in res[::-1]]
+    if int(markup[0][0].callback_data.split('*')[0]) != first_object_id[0]:
+        markup.append([InlineKeyboardButton(text="⬅️", callback_data="amalyot_ortga"),
+                       InlineKeyboardButton(text="➡️", callback_data="amalyot_oldinga")])
+    else:
+        markup.append([
+            InlineKeyboardButton(text="➡️", callback_data="amalyot_oldinga")])
+    ikb = InlineKeyboardBuilder(
+        markup=markup)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id, message_id=callback.message.message_id,
+                                        reply_markup=ikb.as_markup())
+
+
+@dp.callback_query(F.data.endswith('amalyot'))
+async def amalyot_send_answer(callback: CallbackQuery):
+    answer = [i for i in await AmalyotAnswer.filter(AmalyotAnswer.id == int(callback.data.split('*')[0]))]
+    await callback.message.answer(f"Savol:\n\n{answer[0][1]}\n\nJavob:\n\n{answer[0][2]}",
+                                  reply_markup=InlineKeyboardBuilder(markup=[[InlineKeyboardButton(text='Tushunarli✔️',
+                                                                                                   callback_data='tushunarli')]]).as_markup())
+
+
+@dp.message(F.text == "Mutaxasislar bilan bog'lanish👨🏻‍💻")
+async def send_to_amalyot_group(message: Message, state: FSMContext):
+    await message.answer("Savolingizni yozishingiz mumkin tez orada sizga mutaxasislarimiz bog'lanishadi!")
+    await state.set_state(LessonsQuestion.amalyot_group)
+
+
+@dp.message(F.text == "Ortga")
+async def menyuga_otish(message: Message):
     await command_start_handler(message)
+
+
+@dp.message(F.text == "Ortga ⬅️")
+async def another_question(message: Message, state: FSMContext):
+    await button_lesson_question(message, state)
 
 
 @dp.callback_query(F.data == "ortga")
@@ -180,12 +337,24 @@ async def complaint_info_start(message: Message, state: FSMContext):
     await state.set_state(LessonsQuestion.full_name)
 
 
-# @dp.message(F.text.in_(["1", "2", "3", "4", "5"]) or LessonsQuestion.curator)
-# async def bal_form(message: Message, state: FSMContext):
-#     await state.storage.close()
-#     data = await state.get_data()
-#     await Curator.create(curator_id=data.get("curator_id"), answer=data.get("answer"),
-#                          question_id=data.get("question_id"), created_at=datetime.date.today(), ball=int(message.text))
+@dp.message(LessonsQuestion.platforma_group)
+async def send_amalyot(message: Message, state: FSMContext, bot: Bot):
+    question = await Question.create(question=message.text, user_id=message.from_user.id)
+    ikb = InlineKeyboardBuilder().add(
+        InlineKeyboardButton(text=f"Profilga o'tish", url=f"tg://user?id={message.from_user.id}"))
+    await bot.send_message(chat_id=platforma_group_id, text=f"Savol id:{question[0]}\n\n{message.text}",
+                           reply_markup=ikb.as_markup())
+    await message.answer("Xabaringiz kuratorlarga yuborildi iltimos kuting tez orada siz bilan bog'lanishadi")
+
+
+@dp.message(LessonsQuestion.amalyot_group)
+async def send_amalyot(message: Message, state: FSMContext, bot: Bot):
+    question = await Question.create(question=message.text, user_id=message.from_user.id)
+    ikb = InlineKeyboardBuilder().add(
+        InlineKeyboardButton(text=f"Profilga o'tish", url=f"tg://user?id={message.from_user.id}"))
+    await bot.send_message(chat_id=amalyot_group_id, text=f"Savol id:{question[0]}\n\n{message.text}",
+                           reply_markup=ikb.as_markup())
+    await message.answer("Xabaringiz kuratorlarga yuborildi iltimos kuting tez orada siz bilan bog'lanishadi")
 
 
 @dp.message(LessonsQuestion.full_name)
@@ -290,102 +459,13 @@ async def form_lesson(message: Message, state: FSMContext):
         reply_markup=kb)
 
 
-# @dp.message(F.text == "Dars bo'yicha savol 📚")
-# async def question_lesson(message: Message):
-#     kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Ko'p so'raladigan savollar 📖")],
-#                                        [KeyboardButton(text="Kurator bilan bog‘lanish 📞")]])
-#     await message.answer("Agar savolingiz kop so'raladigan turga kirsa 'Ko'p so'raladigan savollar 📖' bu yerdan javob olishingiz mumkun!\n Agar kuratorlar bilan bog'lanmoqchi bo'lsangiz 'Kurator bilan bog‘lanish 📞' ushbu tugmani bosing va kuratirlar siz bilan tezda bog'lanishadi.", reply_markup=kb)
-
-
-# @dp.message(F.text == "Ko'p so'raladigan savollar 📖")
-# async def frequently_asked_question(message: Message):
-# data = await state.get_data()
-# questions = await Answer.filter(Answer.modul == data['modul'], Answer.lesson == data['lesson'])
-# ikb = InlineKeyboardBuilder()
-# for i in questions:
-#     ikb.row(InlineKeyboardButton(text=i[3], callback_data=f"{i[1]}*{i[2]}*{i[4]}* question"))
-# await message.answer('Savolni tanlang', reply_markup=ikb.as_markup())
-
-
-# @dp.callback_query(F.data.endswith('tushunarli'))
-# async def inline_echo(callback: CallbackQuery, bot: Bot):
-#     await bot.delete_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id)
-
-
-# @dp.callback_query(F.data.endswith(' question'))
-# async def answer_to_question(callback: CallbackQuery, bot: Bot):
-#     data = callback.data.split('*')
-#     answer = await Answer.filter(Answer.modul == data[0], Answer.lesson == data[1],
-#                                  Answer.question_number == data[2])
-#     ans = [i for i in answer][0]
-#     ikb = InlineKeyboardBuilder().add(InlineKeyboardButton(text='Tushunarli✔️', callback_data='tushunarli'))
-#     await callback.message.answer(text=f"{ans[3]}\n\n{ans[-1]}", reply_markup=ikb.as_markup())
-
-
-# @dp.message(F.text == "O'zimni savolimni berish")
-# async def another_question(message: Message, state: FSMContext):
-#     await message.answer('Savolingizni yozishingiz mumkun')
-#     await state.set_state(LessonsQuestion.answer)
-
-
-# @dp.message(F.text == "Dars bo'yicha savol")
-# async def button_lesson_question(message: Message, state: FSMContext):
-#     res = await Answer.select()
-#     l = set()
-#     for i in res:
-#         l.add(i[1])
-#     l = sorted(list(l))
-#
-#     kb = []
-#     for i in range(1, len(l) + 1):
-#         kb.append([KeyboardButton(text=f"{i}-Modul")])
-#     rkb = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-#     await message.answer('Modul tanlang', reply_markup=rkb)
-#     await state.update_data(user_id=message.chat.id)
-#     await state.set_state(LessonsQuestion.modul)
-
-
-# @dp.message(LessonsQuestion.answer)
-# async def send_question_group(message: Message, state: FSMContext, bot: Bot):
-#     if message.from_user.id % 2 == 0:
-#         group_id = group_id_1
-#     else:
-#         group_id = group_id_2
-#     await state.update_data(answer=message.text)
-#     await Question.create(question=message.text, user_id=message.from_user.id)
-#     ikb = InlineKeyboardBuilder().add(
-#         InlineKeyboardButton(text=f"Profilga o'tish", url=f"tg://user?id={message.from_user.id}"))
-#     await bot.send_message(chat_id=group_id, text=f"{message.from_user.full_name}\n\n{message.text}",
-#                            reply_markup=ikb.as_markup())
-
-
-# @dp.message(LessonsQuestion.modul)
-# async def form_modul(message: Message, state: FSMContext):
-#     modul = message.text[0]
-#     await state.update_data(modul=modul)
-#     res = await Answer.filter(Answer.modul == modul)
-#     _set = set()
-#     for i in res:
-#         _set.add(i[2])
-#     _set = sorted(list(_set))
-#     kb = [[KeyboardButton(text=f"{i}-Dars")] for i in range(1, len(_set) + 1)]
-#     rkb = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-#     await message.answer('Darsni tanlang', reply_markup=rkb)
-#     await state.set_state(LessonsQuestion.lesson)
-
-
-# @dp.message(LessonsQuestion.lesson)
-# async def form_lesson(message: Message, state: FSMContext):
-#     await state.update_data(lesson=message.text[0])
-#
-#     kb = [
-#         [KeyboardButton(text="Ko'p so'raladigan savollar"), KeyboardButton(text="O'zimni savolimni berish")]
-#     ]
-#     rkb = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-#     await message.answer('Buttonlardan birini tanlang', reply_markup=rkb)
+async def on_startup(dispatcher: Dispatcher, bot: Bot):
+    commands = [BotCommand(command='start', description="Botni boshlash")]
+    await bot.set_my_commands(commands)
 
 
 async def main() -> None:
+    dp.startup.register(on_startup)
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     await dp.start_polling(bot)
 
